@@ -61,6 +61,7 @@ class DataArguments:
 
     encode_in_path: List[str] = field(default=None, metadata={"help": "Path to data to encode"})
     encoded_save_path: str = field(default=None, metadata={"help": "where to save the encode"})
+    save_index: bool = field(default=False)
     encode_is_qry: bool = field(default=False)
     encode_num_shard: int = field(default=1)
     encode_shard_index: int = field(default=0)
@@ -87,6 +88,8 @@ class DataArguments:
         if self.dataset_name is not None:
             info = self.dataset_name.split('/')
             self.dataset_split = info[-1] if len(info) == 3 else 'train'
+            print(f'info: {info}')
+            print(f"dataset split : {self.dataset_split}")
             self.dataset_name = "/".join(info[:-1]) if len(info) == 3 else '/'.join(info)
             self.dataset_language = 'default'
             if ':' in self.dataset_name:

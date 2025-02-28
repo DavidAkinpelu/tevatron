@@ -22,8 +22,10 @@ from data import HFQueryDataset, HFCorpusDataset
 from repllama import RepLLaMA
 from data import EncodeDataset, EncodeCollator
 from utils import replace_with_xformers_attention
+from faiss_index import create_faiss_index
 
 logger = logging.getLogger(__name__)
+
 
 
 def main():
@@ -49,7 +51,7 @@ def main():
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
-        cache_dir=model_args.cache_dir
+        cache_dir=model_args.cache_dir,
     )
     tokenizer.pad_token_id = tokenizer.unk_token_id
     tokenizer.pad_token = tokenizer.unk_token
@@ -58,7 +60,10 @@ def main():
     model = RepLLaMA.load(
         model_name_or_path=model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
+        is_query=False,
+        torch_dtype=torch.float16 if training_args.fp16 else torch.float32
     )
+
 
     text_max_length = data_args.q_max_len if data_args.encode_is_qry else data_args.p_max_len
     if data_args.encode_is_qry:
@@ -82,6 +87,7 @@ def main():
         drop_last=False,
         num_workers=training_args.dataloader_num_workers,
     )
+
     encoded = []
     lookup_indices = []
     model = model.to(training_args.device)
@@ -102,8 +108,22 @@ def main():
 
     encoded = np.concatenate(encoded)
 
+
+    model.cpu()  # Move model to CPU
+    torch.cuda.empty_cache()  # Clear GPU memory
+
+    folder_name = data_args.encoded_save_path.split('/')[0]
+    print(f'folder name: {folder_name}')
+    os.makedirs(folder_name, exist_ok=True)
+
     with open(data_args.encoded_save_path, 'wb') as f:
         pickle.dump((encoded, lookup_indices), f)
+
+    if data_args.save_index:
+        create_faiss_index(
+            encoded, lookup_indices,
+            data_args.encoded_save_path 
+        )
 
 
 if __name__ == "__main__":

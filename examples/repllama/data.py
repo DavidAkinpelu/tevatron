@@ -23,7 +23,10 @@ class HFTrainDataset:
             data_files = {data_args.dataset_split: data_files}
         self.dataset = load_dataset(data_args.dataset_name,
                                     data_args.dataset_language,
-                                    data_files=data_files, cache_dir=cache_dir, use_auth_token=True)[data_args.dataset_split]
+                                    data_files=data_files, cache_dir=cache_dir, token=True)
+        # Print available splits
+        print(f"datatset keys : {self.dataset.keys()}")
+        self.dataset = self.dataset[data_args.dataset_split]
         self.preprocessor = TrainPreProcessor
         self.tokenizer = tokenizer
         self.q_max_len = data_args.q_max_len
@@ -80,7 +83,11 @@ class HFQueryDataset:
             data_files = {data_args.dataset_split: data_files}
         self.dataset = load_dataset(data_args.dataset_name,
                                     data_args.dataset_language,
-                                    data_files=data_files, cache_dir=cache_dir, use_auth_token=True)[data_args.dataset_split]
+                                    data_files=data_files, cache_dir=cache_dir, token=True)
+        
+        # Print available splits
+        print(f"datatset keys : {self.dataset.keys()}")
+        self.dataset = self.dataset[data_args.dataset_split]
         self.preprocessor = QueryPreProcessor
         self.tokenizer = tokenizer
         self.q_max_len = data_args.q_max_len
@@ -108,9 +115,9 @@ class QueryPreProcessor:
     def __call__(self, example):
         query_id = example['query_id']
         query = self.tokenizer.encode('query: ' + example['query'],
-                                      add_special_tokens=False,
-                                      max_length=self.query_max_length-3,
-                                      truncation=True)
+                                add_special_tokens=False,
+                                max_length=self.query_max_length-3,
+                                truncation=True)
         return {'text_id': query_id, 'text': query}
 
 
@@ -121,7 +128,10 @@ class HFCorpusDataset:
             data_files = {data_args.dataset_split: data_files}
         self.dataset = load_dataset(data_args.dataset_name,
                                     data_args.dataset_language,
-                                    data_files=data_files, cache_dir=cache_dir, use_auth_token=True)[data_args.dataset_split]
+                                    data_files=data_files, cache_dir=cache_dir, token=True)
+        # Print available splits
+        print(f"datatset keys : {self.dataset.keys()}")
+        self.dataset = self.dataset[data_args.dataset_split]
         script_prefix = data_args.dataset_name
         if script_prefix.endswith('-corpus'):
             script_prefix = script_prefix[:-7]
@@ -154,9 +164,9 @@ class CorpusPreProcessor:
         docid = example['docid']
         text = example['title'] + self.separator + example['text'] if 'title' in example else example['text']
         text = self.tokenizer.encode('passage: ' + text,
-                                     add_special_tokens=False,
-                                     max_length=self.text_max_length-3,
-                                     truncation=True)
+                                add_special_tokens=False,
+                                max_length=self.text_max_length-3,
+                                truncation=True)
         return {'text_id': docid, 'text': text}
 
 class TrainDataset(Dataset):
@@ -240,13 +250,19 @@ class EncodeDataset(Dataset):
 
     def __getitem__(self, item) -> Tuple[str, BatchEncoding]:
         text_id, text = (self.encode_data[item][f] for f in self.input_keys)
-        encoded_text = self.tok.prepare_for_model(
-            text + [self.tok.eos_token_id],
-            max_length=self.max_len,
-            truncation='only_first',
-            padding=False,
-            return_token_type_ids=False,
-        )
+        if isinstance(text, dict):
+            encoded_text = {
+        'input_ids': text['input_ids'] + [self.tok.eos_token_id],
+        'attention_mask': text['attention_mask'] + [1]
+        }
+        else:
+            encoded_text = self.tok.prepare_for_model(
+                text + [self.tok.eos_token_id],
+                max_length=self.max_len,
+                truncation='only_first',
+                padding=False,
+                return_token_type_ids=False,
+            )
         return text_id, encoded_text
 
 

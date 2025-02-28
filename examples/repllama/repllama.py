@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from typing import Optional
 from torch import Tensor
 from transformers import LlamaModel, PreTrainedModel
 import logging
@@ -11,14 +12,17 @@ logger = logging.getLogger(__name__)
 
 class RepLLaMA(EncoderModel):
     def __init__(self,
-                 lm_q: PreTrainedModel,
-                 lm_p: PreTrainedModel,
+                 lm_q: Optional[PreTrainedModel]=None,
+                 lm_p: Optional[PreTrainedModel]=None,
                  pooler: nn.Module = None,
                  untie_encoder: bool = False,
                  negatives_x_device: bool = False
                  ):
         super().__init__(lm_q, lm_p, pooler, untie_encoder, negatives_x_device)
-        self.config = lm_q.config
+        if lm_q is not None:
+            self.config = lm_q.config
+        else:
+            self.config = lm_p.config
 
     def encode_passage(self, psg):
         if psg is None:
@@ -36,7 +40,10 @@ class RepLLaMA(EncoderModel):
     def encode_query(self, qry):
         if qry is None:
             return None
-        qry_out = self.lm_q(**qry, output_hidden_states=True)
+        if self.lm_q is not None:
+            qry_out = self.lm_q(**qry, output_hidden_states=True)
+        else:
+            qry_out = self.lm_p(**qry, output_hidden_states=True)
         q_hidden = qry_out.hidden_states[-1]
         attention_mask = qry['attention_mask']
         # q_reps is the last token representation that is not padding
@@ -101,17 +108,25 @@ class RepLLaMA(EncoderModel):
     def load(
             cls,
             model_name_or_path,
+            is_query,
             **hf_kwargs,
     ):
         config = LoraConfig.from_pretrained(model_name_or_path)
-        base_model = LlamaModel.from_pretrained(config.base_model_name_or_path)
+        base_model = LlamaModel.from_pretrained(config.base_model_name_or_path,
+                                                **hf_kwargs)
         if base_model.config.pad_token_id is None:
             base_model.config.pad_token_id = 0
         hf_model = PeftModel.from_pretrained(base_model, model_name_or_path, config=config, is_trainable=True)
         hf_model = hf_model.merge_and_unload()
+        lm_q, lm_p = None, None,
+        if is_query:
+            lm_q = hf_model
+        else:
+            lm_p = hf_model
+
         model = cls(
-            lm_q=hf_model,
-            lm_p=hf_model,
+            lm_q=lm_q,
+            lm_p=lm_p,
             pooler=None,
             untie_encoder=False
         )
