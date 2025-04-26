@@ -84,12 +84,17 @@ class DataArguments:
         default=None, metadata={"help": "Where do you want to store the data downloaded from huggingface"}
     )
 
+    split: Optional[str] = field(
+        default=None, metadata={"help": "split name"}
+    )
+
     def __post_init__(self):
-        if self.dataset_name is not None:
+        if self.split is not None:
+            self.dataset_split = self.split
+            self.dataset_language = 'default'
+        elif self.dataset_name is not None:
             info = self.dataset_name.split('/')
             self.dataset_split = info[-1] if len(info) == 3 else 'train'
-            print(f'info: {info}')
-            print(f"dataset split : {self.dataset_split}")
             self.dataset_name = "/".join(info[:-1]) if len(info) == 3 else '/'.join(info)
             self.dataset_language = 'default'
             if ':' in self.dataset_name:
@@ -112,6 +117,10 @@ class DataArguments:
                 self.train_path = [self.train_dir]
         else:
             self.train_path = None
+
+        print(f"dataset split: {self.dataset_split}")
+        print(f"dataset name: {self.dataset_name}")
+        print(f"dataset language: {self.dataset_language}")
 
 
 @dataclass

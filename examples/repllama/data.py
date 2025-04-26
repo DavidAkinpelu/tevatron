@@ -21,8 +21,9 @@ class HFTrainDataset:
         data_files = data_args.train_path
         if data_files:
             data_files = {data_args.dataset_split: data_files}
+        print(f'data_files: {data_files}')
         self.dataset = load_dataset(data_args.dataset_name,
-                                    data_args.dataset_language,
+                                    data_args.dataset_language, trust_remote_code=True,
                                     data_files=data_files, cache_dir=cache_dir, token=True)
         # Print available splits
         print(f"datatset keys : {self.dataset.keys()}")
@@ -81,8 +82,9 @@ class HFQueryDataset:
         data_files = data_args.encode_in_path
         if data_files:
             data_files = {data_args.dataset_split: data_files}
+        print(f'data_files: {data_files}')
         self.dataset = load_dataset(data_args.dataset_name,
-                                    data_args.dataset_language,
+                                    data_args.dataset_language, trust_remote_code=True,
                                     data_files=data_files, cache_dir=cache_dir, token=True)
         
         # Print available splits
@@ -126,8 +128,9 @@ class HFCorpusDataset:
         data_files = data_args.encode_in_path
         if data_files:
             data_files = {data_args.dataset_split: data_files}
+        print(f'data_files: {data_files}')
         self.dataset = load_dataset(data_args.dataset_name,
-                                    data_args.dataset_language,
+                                    data_args.dataset_language, trust_remote_code=True,
                                     data_files=data_files, cache_dir=cache_dir, token=True)
         # Print available splits
         print(f"datatset keys : {self.dataset.keys()}")
@@ -161,6 +164,7 @@ class CorpusPreProcessor:
         self.separator = separator
 
     def __call__(self, example):
+        print(f"example keys: {example.keys()}")
         docid = example['docid']
         text = example['title'] + self.separator + example['text'] if 'title' in example else example['text']
         text = self.tokenizer.encode('passage: ' + text,
